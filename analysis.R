@@ -26,7 +26,7 @@ colnames(df) <- c(
   "ketamine", "legalh", "lsd", "meth", "mushrooms", "nicotine", "semer", "vsa"
 )
   
-cat("Dimensions: ", nrow(df)," rows ",ncol(df), " cols\n")
+cat("Dimensions: ", nrow(df)," rows and ",ncol(df), " cols\n")
 str(df)
 summary(df)
 head(df)
@@ -55,8 +55,8 @@ df_modified <- df%>%mutate(
 
 cat("Age group counts:\n", table(df_modified$age_group))
 cat("Gender counts:\n", table(df_modified$gender_label))
-cat("\nCannabis user counts:\n", table(df_modified$cannabis_user))
-cat("\nCannabis frequency:\n", table(df_modified$cannabis_freq))
+cat("Cannabis user counts:\n", table(df_modified$cannabis_user))
+cat("Cannabis frequency:\n", table(df_modified$cannabis_freq))
 
 str(df_modified)
 summary(df_modified)
