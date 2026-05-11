@@ -28,8 +28,6 @@ colnames(df) <- c(
   
 cat("Dimensions: ", nrow(df)," rows and ",ncol(df), " cols\n")
 str(df)
-summary(df)
-head(df,3)
 
 # =============================================================================
 # SECTION 3: Data Cleaning & Preparation
@@ -65,10 +63,6 @@ cat("Gender counts:\n", table(df_modified$gender_label))
 cat("Cannabis user counts:\n", table(df_modified$cannabis_user))
 cat("Cannabis frequency:\n", table(df_modified$cannabis_freq))
 
-str(df_modified)
-summary(df_modified)
-head(df_modified,3)
-
 # =============================================================================
 # SECTION 4: EDA (Exploratory Data Analysis)
 # =============================================================================
@@ -80,29 +74,76 @@ personality_table <- t(personality_summary)
 cat("Overall Personality Score Summary:\n")
 personality_table
 
-cat("Mean of Personality Scores by Cannabis User Status:\n")
+cat("Mean Personality Scores by Cannabis User Status:\n")
 aggregate(cbind(nscore, escore, oscore, ascore, cscore, impulsive, ss) ~ cannabis_user, 
           data = df_modified, FUN = mean)
-cat("SD of Personality Scores by Cannabis User Status:\n")
+cat("SD Personality Scores by Cannabis User Status:\n")
 aggregate(cbind(nscore, escore, oscore, ascore, cscore, impulsive, ss) ~ cannabis_user,
           data = df_modified, FUN = sd)
 
-cat("Mean of Personality Scores by Gender:\n")
+cat("Mean Personality Scores by Gender:\n")
 aggregate(cbind(nscore, escore, oscore, ascore, cscore, impulsive, ss) ~ gender_label,
           data = df_modified, FUN = mean)
 cat("SD of Personality Scores by Gender:\n")
 aggregate(cbind(nscore, escore, oscore, ascore, cscore, impulsive, ss) ~ gender_label,
           data = df_modified, FUN = sd)
 
+cat("Mean Personality Scores by Age Group:\n")
+aggregate(cbind(nscore, escore, oscore, ascore, cscore, impulsive, ss) ~ age_group,
+          data = df_modified, FUN = mean)
+cat("SD Personality Scores by Age Group:\n")
+aggregate(cbind(nscore, escore, oscore, ascore, cscore, impulsive, ss) ~ age_group,
+          data = df_modified, FUN = sd)
+
 cat("Cannabis Use Frequency Table:\n")
 print(table(df_modified$cannabis_freq))
-cat("Cannabis User Proportions:\n")
+cat("Cannabis User Proportions(%):\n")
 print(round(prop.table(table(df_modified$cannabis_user)) * 100, 1))
 
+# All personality scores by cannabis user status
+par(mfrow = c(2,4), mar = c(4,4,3,1))
+for (var in personality_vars){
+  boxplot(df_modified[[var]] ~ df_modified$cannabis_user,
+          main = var, xlab = "Cannabis User Status", ylab = "Score",
+          col = c("lightblue", "darkorange"))
+}
+par(mfrow=c(1,1))
 
-ggplot(data=df_modified, aes(x=cannabis_user, y=nscore, fill=cannabis_user))+
-  geom_boxplot() + 
-  labs(title="Neuroticism Scores by Cannabis User Status",
-       x="User Status", y="N-Score") + 
-  theme_minimal()
+# Distribution of each personality score
+par(mfrow = c(2, 4), mar = c(4, 4, 3, 1))
+for (var in personality_vars) {
+  hist(df_modified[[var]], main = var, xlab = "Score",
+       col = "darkgreen", border = "white", breaks = 30)
+}
+par(mfrow = c(1, 1))
+
+# Cannabis use frequency
+barplot(table(df_modified$cannabis_freq),
+        main = "Cannabis Use Frequency Distribution",
+        xlab = "Frequency Category", ylab = "No. of Respondents",
+        col = "red", las = 2)
+
+# All personality scores by gender
+par(mfrow = c(2, 4), mar = c(4, 4, 3, 1))
+for (var in personality_vars){
+  boxplot(df_modified[[var]] ~ df_modified$gender_label,
+          main = var, xlab = "Gender", ylab = "Score",
+          col = c("tomato", "steelblue"))
+}
+par(mfrow = c(1, 1))
+
+# All personality scores by age group
+par(mfrow = c(2, 4), mar = c(4, 4, 3, 1))
+for (var in personality_vars){
+  boxplot(df_modified[[var]] ~ df_modified$age_group,
+          main = var, xlab = "Age Group", ylab = "Score",
+          col = rainbow(6), las = 2)
+}
+par(mfrow = c(1, 1))
+
+# =============================================================================
+# SECTION 5: 
+# =============================================================================
+
+
 
