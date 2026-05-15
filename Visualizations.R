@@ -73,45 +73,49 @@ df[drug_cols] <- lapply(
 # 6. Boxplot: Impulsiveness by cannabis consumption
 # ---------------------------------------------------------------------------
 
-ggplot(df, aes(x = cannabis, y = impulsive)) +
+p1 <- ggplot(df, aes(x = cannabis, y = impulsive)) +
   geom_boxplot() +
   labs(
     title = "Impulsiveness by Cannabis Consumption",
     x = "Cannabis Consumption Class",
     y = "Impulsiveness Score"
   )
-
+p1
+ggsave("cannabis_impulsiveness_boxplot.png", plot = p1, width = 8, height = 5, dpi = 300)
 
 # ---------------------------------------------------------------------------
 # 7. Boxplot: Sensation seeking by nicotine consumption
 # ---------------------------------------------------------------------------
 
-ggplot(df, aes(x = nicotine, y = ss)) +
+p2 <- ggplot(df, aes(x = nicotine, y = ss)) +
   geom_boxplot() +
   labs(
     title = "Sensation Seeking by Nicotine Consumption",
     x = "Nicotine Consumption Class",
     y = "Sensation Seeking Score"
   ) 
+p2
+ggsave("sensation_seeking_nicotine_boxplot.png", plot = p2, width = 8, height = 5, dpi = 300)
 
 # ---------------------------------------------------------------------------
 # 8. Density plot: Neuroticism score
 # ---------------------------------------------------------------------------
 
-ggplot(df, aes(x = nscore)) +
-  geom_density(fill = "lightblue", alpha = 0.5) +
+p3 <- ggplot(df, aes(x = nscore)) +
+  geom_density(fill = "black", alpha = 0.5) +
   labs(
     title = "Density Plot of Neuroticism Score",
     x = "Neuroticism Score",
     y = "Density"
   )
-
+p3
+ggsave("neuroticism_score_density_score.png", plot = p3, width = 8, height = 5, dpi = 300)
 
 # ---------------------------------------------------------------------------
 # 9. Density plot: Impulsiveness by cannabis consumption
 # ---------------------------------------------------------------------------
 
-ggplot(df, aes(x = impulsive, fill = cannabis)) +
+p4 <- ggplot(df, aes(x = impulsive, fill = cannabis)) +
   geom_density(alpha = 0.4) +
   labs(
     title = "Density of Impulsiveness by Cannabis Consumption",
@@ -119,19 +123,23 @@ ggplot(df, aes(x = impulsive, fill = cannabis)) +
     y = "Density",
     fill = "Cannabis Class"
   ) 
+p4
+ggsave("density_impulsiveness_cannabis_consumption.png", plot = p4, width = 8, height = 5, dpi = 300)
 
 
 # ---------------------------------------------------------------------------
 # 10. Bar chart: Cannabis consumption distribution
 # ---------------------------------------------------------------------------
 
-ggplot(df, aes(x = cannabis)) +
+p5 <- ggplot(df, aes(x = cannabis)) +
   geom_bar() +
   labs(
     title = "Cannabis Consumption Class Distribution",
     x = "Cannabis Consumption Class",
     y = "Count"
   ) 
+p5
+ggsave("cannabis_consumption.png", plot = p5, width = 8, height = 5, dpi = 300)
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +154,7 @@ cor_matrix <- cor(df[, personality_cols], use = "complete.obs")
 
 cor_df <- as.data.frame(as.table(cor_matrix))
 
-ggplot(cor_df, aes(x = Var1, y = Var2, fill = Freq)) +
+p6 <- ggplot(cor_df, aes(x = Var1, y = Var2, fill = Freq)) +
   geom_tile() +
   geom_text(aes(label = round(Freq, 2)), size = 4) +
   scale_fill_gradient2(
@@ -162,5 +170,7 @@ ggplot(cor_df, aes(x = Var1, y = Var2, fill = Freq)) +
     y = "",
     fill = "Correlation"
   ) 
+p6
+ggsave("correlation_heatmap_personality_variables.png", plot = p6, width = 8, height = 5, dpi = 300)
 
 
