@@ -142,8 +142,113 @@ for (var in personality_vars){
 par(mfrow = c(1, 1))
 
 # =============================================================================
-# SECTION 5: 
+# SECTION 5: Advanced Statistical Analysis
 # =============================================================================
 
+#-------------------------------------------------------------------------------
+# 5A: Two-Sample T-Tests
+# Compare mean personality scores between cannabis users and non-users
+# HO: mean score is equal between users and non-users
+# Ha: mean score differs between users and non-users
+#-------------------------------------------------------------------------------
+cat("=== Two-Sample T-Tests: Cannabis Users vs Non-Users ===\n\n")
+for(var in personality_vars) {
+  users <- df_modified[[var]][df_modified$cannabis_user=="User"]
+  non_users <- df_modified[[var]][df_modified$cannabis_user=="Non-User"]
+  
+  result <- t.test(users, non_users)
+  
+  cat("Variable: ", var, "\n")
+  cat(" t=", round(result$statistic, 3),
+      "| df=", round(result$parameter, 1),
+      "| p-value=", round(result$p.value, 4),
+      "\n")
+  if(result$p.value < 0.05) {
+    cat(" --> Reject HO: Significant difference\n\n")
+  } else{
+    cat(" --> Fail to reject HO: no significant difference\n\n")
+  }
+}
 
+#-------------------------------------------------------------------------------
+# 5B: Chi-Square Tests of Independence
+# Test whether cannabis user status is independent of gender and age group
+# HO: cannabis user status and [gender/age group] are independent
+# Ha: they are not independent
+#-------------------------------------------------------------------------------
+cat("=== Chi-Square Test: Cannabis User Status vs Gender ===\n")
+gender_table <- table(df_modified$cannabis_user,
+                      df_modified$gender_label)
+print(gender_table)
+chisq_gender <- chisq.test(gender_table)
+print(chisq_gender)
+if(chisq_gender$p.value < 0.05) {
+  cat(" --> Reject HO: cannabis use and gender are not independent\n\n")
+} else{
+  cat(" --> Fail to reject HO: no significant association\n\n")
+}
 
+cat("=== Chi-Square Test: Cannabis User Status vs Age Group ===\n")
+age_table <- table(df_modified$cannabis_user,
+                      df_modified$age_group)
+print(age_table)
+chisq_age <- chisq.test(age_table)
+print(chisq_age)
+if(chisq_age$p.value < 0.05) {
+  cat(" --> Reject HO: cannabis use and age group are not independent\n\n")
+} else{
+  cat(" --> Fail to reject HO: no significant association\n\n")
+}
+
+#-------------------------------------------------------------------------------
+# 5C: One-Way ANOVA + Tukey HSD
+# Test whether sensation seeking scores differ across cannabis frequency groups
+# HO: mean SS score is equal across all cannabis frequency groups
+# Ha: at least one group mean differs
+#-------------------------------------------------------------------------------
+cat("=== One-Way ANOVA: Sensation Seeking by Cannabis Frequency ===\n")
+anova_model <- aov(ss ~cannabis_freq, data=df_modified)
+print(summary(anova_model))
+
+anova_summary <- summary(anova_model)[[1]]
+p_anova <- anova_summary$`Pr(>F)`[1]
+
+if(p_anova < 0.05) {
+  cat(" --> Reject HO: SS scores differ significantly across frequency groups\n")
+  cat("\n=== Tukey HSD Post-Hoc Test ===\n")
+  tukey_result <- TukeyHSD(anova_model)
+  print(tukey_result)
+} else{
+  cat(" --> Fail to reject HO: no significant difference across groups\n")
+}
+
+#-------------------------------------------------------------------------------
+# 5D: Logistic Regression
+# Predict cannabis user status from 7 personality scores
+# HO: personality traits do not predict cannabis use
+# Ha: at least one personality trait significantly predicts cannabis use
+#-------------------------------------------------------------------------------
+# Convert cannabis_user to binary (1=User, 0=Non-User)
+df_modified$cannabis_binary <- ifelse(df_modified$cannabis_user=="User", 1, 0)
+
+cat("=== Logistic Regression: Prediction Cannabis Use ===\n")
+log_model <- glm(cannabis_binary ~ nscore + escore + oscore + 
+                   ascore + cscore + impulsive + ss, data=df_modified, 
+                 family = binomial())
+print(summary(log_model))
+
+# Odds ratio
+cat("\n=== Odds Ratios ===\n")
+print(round(exp(coef(log_model)), 4))
+
+# VIF check for multicollinearity
+# install.packages("car")
+library(car)
+cat("\n=== Variance Inflation Factors (VIF) ===\n")
+vif_vals <- vif(log_model)
+print(round(vif_vals, 3))
+if(any(vif_vals > 5)) {
+  cat(" --> Warning: Some predictors have VIF > 5, multicollinearity may be present\n")
+} else{
+  cat(" --> All VIF values acceptable (<5), no serious multicollinearity\n")
+}
