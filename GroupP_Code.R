@@ -252,3 +252,629 @@ if(any(vif_vals > 5)) {
 } else{
   cat(" --> All VIF values acceptable (<5), no serious multicollinearity\n")
 }
+# =============================================================================
+# SECTION 6: Visualizations
+# =============================================================================
+
+library(scales)
+library(GGally)
+
+plot_dir <- "plots"
+dir.create(plot_dir, showWarnings = FALSE)
+
+
+df_viz <- df_modified
+
+# -----------------------------------------------------------------------------
+# Color settings
+# -----------------------------------------------------------------------------
+
+single_bar_color <- "#4E79A7"
+boxplot_color <- "#A6CEE3"
+violin_color <- "#74A9CF"
+recent_color <- "#2B8CBE"
+never_color <- "#E15759"
+
+class_colors <- c(
+  "Never used"      = "#D9D9D9",
+  "Over decade ago" = "#C6DBEF",
+  "Last decade"     = "#9ECAE1",
+  "Last year"       = "#6BAED6",
+  "Last month"      = "#4292C6",
+  "Last week"       = "#2171B5",
+  "Last day"        = "#084594"
+)
+
+group_colors <- c(
+  "Never Used" = "#BDBDBD",
+  "Past User" = "#74A9CF",
+  "Recent User" = "#E15759"
+)
+
+recent_group_colors <- c(
+  "Non-Recent User" = "#4E79A7",
+  "Recent User" = "#E15759"
+)
+
+profile_colors <- c(
+  "Never Users" = "#BDBDBD",
+  "Recent Users" = "#4E79A7",
+  "Daily Users" = "#E15759"
+)
+
+heatmap_low <- "#2166AC"
+heatmap_mid <- "white"
+heatmap_high <- "#B2182B"
+
+theme_set(
+  theme_minimal(base_size = 13) +
+    theme(
+      plot.title = element_text(face = "bold", size = 15),
+      plot.subtitle = element_text(size = 11),
+      axis.title = element_text(face = "bold"),
+      legend.title = element_text(face = "bold"),
+      panel.grid.minor = element_blank()
+    )
+)
+
+save_plot <- function(plot, file_name, width = 8, height = 5) {
+  ggsave(
+    filename = file.path(plot_dir, file_name),
+    plot = plot,
+    width = width,
+    height = height,
+    dpi = 300
+  )
+}
+
+# -----------------------------------------------------------------------------
+# Labels and variable groups
+# -----------------------------------------------------------------------------
+
+personality_cols <- c(
+  "nscore", "escore", "oscore", "ascore",
+  "cscore", "impulsive", "ss"
+)
+
+personality_labels <- c(
+  nscore = "Neuroticism",
+  escore = "Extraversion",
+  oscore = "Openness",
+  ascore = "Agreeableness",
+  cscore = "Conscientiousness",
+  impulsive = "Impulsiveness",
+  ss = "Sensation Seeking"
+)
+
+drug_cols <- c(
+  "alcohol", "amphet", "amyl", "benzos", "caff", "cannabis",
+  "choc", "coke", "crack", "ecstasy", "heroin", "ketamine",
+  "legalh", "lsd", "meth", "mushrooms", "nicotine", "semer", "vsa"
+)
+
+drug_name_labels <- c(
+  alcohol = "Alcohol",
+  amphet = "Amphetamines",
+  amyl = "Amyl Nitrite",
+  benzos = "Benzodiazepines",
+  caff = "Caffeine",
+  cannabis = "Cannabis",
+  choc = "Chocolate",
+  coke = "Cocaine",
+  crack = "Crack",
+  ecstasy = "Ecstasy",
+  heroin = "Heroin",
+  ketamine = "Ketamine",
+  legalh = "Legal Highs",
+  lsd = "LSD",
+  meth = "Methadone",
+  mushrooms = "Mushrooms",
+  nicotine = "Nicotine",
+  semer = "Semer",
+  vsa = "VSA"
+)
+
+drug_levels <- c("CL0", "CL1", "CL2", "CL3", "CL4", "CL5", "CL6")
+
+drug_class_labels <- c(
+  CL0 = "Never used",
+  CL1 = "Over decade ago",
+  CL2 = "Last decade",
+  CL3 = "Last year",
+  CL4 = "Last month",
+  CL5 = "Last week",
+  CL6 = "Last day"
+)
+
+recent_levels <- c("CL3", "CL4", "CL5", "CL6")
+
+# -----------------------------------------------------------------------------
+# Prepare visualization data
+# -----------------------------------------------------------------------------
+
+df_viz[personality_cols] <- lapply(df_viz[personality_cols], as.numeric)
+
+df_viz[drug_cols] <- lapply(
+  df_viz[drug_cols],
+  factor,
+  levels = drug_levels,
+  ordered = TRUE
+)
+
+make_use_group <- function(x) {
+  case_when(
+    as.character(x) == "CL0" ~ "Never Used",
+    as.character(x) %in% c("CL1", "CL2") ~ "Past User",
+    as.character(x) %in% recent_levels ~ "Recent User",
+    TRUE ~ NA_character_
+  )
+}
+
+for (drug in drug_cols) {
+  df_viz[[paste0(drug, "_num")]] <- as.integer(df_viz[[drug]]) - 1
+  
+  df_viz[[paste0(drug, "_group")]] <- factor(
+    make_use_group(df_viz[[drug]]),
+    levels = c("Never Used", "Past User", "Recent User")
+  )
+  
+  df_viz[[paste0(drug, "_recent")]] <- factor(
+    ifelse(df_viz[[drug]] %in% recent_levels, "Recent User", "Non-Recent User"),
+    levels = c("Non-Recent User", "Recent User")
+  )
+}
+
+drug_long <- df_viz %>%
+  select(id, all_of(drug_cols)) %>%
+  pivot_longer(
+    cols = all_of(drug_cols),
+    names_to = "drug",
+    values_to = "class"
+  ) %>%
+  mutate(
+    drug_label = factor(drug_name_labels[drug], levels = drug_name_labels[drug_cols]),
+    class = factor(class, levels = drug_levels, ordered = TRUE),
+    class_label = factor(
+      drug_class_labels[as.character(class)],
+      levels = drug_class_labels[drug_levels],
+      ordered = TRUE
+    ),
+    class_num = as.integer(class) - 1,
+    use_group = factor(make_use_group(class), levels = c("Never Used", "Past User", "Recent User"))
+  )
+
+# -----------------------------------------------------------------------------
+# 6A. Drug-use distribution plots
+# -----------------------------------------------------------------------------
+
+for (d in drug_cols) {
+  p <- drug_long %>%
+    filter(drug == d) %>%
+    ggplot(aes(x = class_label)) +
+    geom_bar(fill = single_bar_color) +
+    labs(
+      title = paste("Consumption Class Distribution:", drug_name_labels[d]),
+      x = "Consumption Class",
+      y = "Number of Participants"
+    ) +
+    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+  
+  save_plot(p, paste0("bar_each_drug_", d, ".png"))
+}
+
+p_grouped <- ggplot(drug_long, aes(x = drug_label, fill = class_label)) +
+  geom_bar(position = "dodge") +
+  scale_fill_manual(values = class_colors) +
+  labs(
+    title = "Drug-Use Class Counts Across All Drugs",
+    x = "Drug",
+    y = "Number of Participants",
+    fill = "Consumption Class"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+save_plot(p_grouped, "grouped_bar_all_drugs.png", width = 12, height = 6)
+
+p_stacked <- ggplot(drug_long, aes(x = drug_label, fill = class_label)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = class_colors) +
+  scale_y_continuous(labels = percent) +
+  labs(
+    title = "Proportion of Drug-Use Classes Across All Drugs",
+    x = "Drug",
+    y = "Percentage of Participants",
+    fill = "Consumption Class"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+save_plot(p_stacked, "stacked_100_bar_all_drugs.png", width = 12, height = 6)
+
+# -----------------------------------------------------------------------------
+# 6B. Boxplots and violin plots
+# -----------------------------------------------------------------------------
+
+plot_pairs <- tibble::tribble(
+  ~drug,       ~trait,       ~trait_label,
+  "cannabis",  "oscore",     "Openness",
+  "cannabis",  "ss",         "Sensation Seeking",
+  "cannabis",  "impulsive",  "Impulsiveness",
+  "ecstasy",   "ss",         "Sensation Seeking",
+  "coke",      "impulsive",  "Impulsiveness",
+  "nicotine",  "nscore",     "Neuroticism",
+  "alcohol",   "escore",     "Extraversion",
+  "heroin",    "cscore",     "Conscientiousness",
+  "lsd",       "oscore",     "Openness",
+  "mushrooms", "oscore",     "Openness"
+)
+
+make_boxplot <- function(drug, trait, trait_label) {
+  p <- ggplot(df_viz, aes(x = .data[[drug]], y = .data[[trait]])) +
+    geom_boxplot(fill = boxplot_color, color = "#333333") +
+    labs(
+      title = paste(trait_label, "by", drug_name_labels[drug], "Consumption Class"),
+      x = paste(drug_name_labels[drug], "Class"),
+      y = paste(trait_label, "Score")
+    )
+  
+  save_plot(p, paste0("boxplot_", drug, "_", trait, ".png"))
+}
+
+make_violin <- function(drug, trait, trait_label) {
+  p <- ggplot(df_viz, aes(x = .data[[drug]], y = .data[[trait]])) +
+    geom_violin(fill = violin_color, alpha = 0.75, color = "#333333") +
+    geom_boxplot(width = 0.1, fill = "white", color = "#333333") +
+    labs(
+      title = paste(trait_label, "by", drug_name_labels[drug], "Consumption Class"),
+      x = paste(drug_name_labels[drug], "Class"),
+      y = paste(trait_label, "Score")
+    )
+  
+  save_plot(p, paste0("violin_", drug, "_", trait, ".png"))
+}
+
+for (i in seq_len(nrow(plot_pairs))) {
+  make_boxplot(plot_pairs$drug[i], plot_pairs$trait[i], plot_pairs$trait_label[i])
+  make_violin(plot_pairs$drug[i], plot_pairs$trait[i], plot_pairs$trait_label[i])
+}
+
+# -----------------------------------------------------------------------------
+# 6C. Density plots
+# -----------------------------------------------------------------------------
+
+density_pairs <- tibble::tribble(
+  ~drug_group,       ~trait,       ~title,
+  "cannabis_group",  "ss",         "Sensation Seeking by Cannabis Use Group",
+  "lsd_group",       "oscore",     "Openness by LSD Use Group",
+  "coke_group",      "impulsive",  "Impulsiveness by Cocaine Use Group",
+  "nicotine_group",  "nscore",     "Neuroticism by Nicotine Use Group",
+  "alcohol_group",   "escore",     "Extraversion by Alcohol Use Group",
+  "heroin_group",    "cscore",     "Conscientiousness by Heroin Use Group"
+)
+
+make_density <- function(drug_group, trait, title) {
+  p <- ggplot(df_viz, aes(x = .data[[trait]], fill = .data[[drug_group]])) +
+    geom_density(alpha = 0.5) +
+    scale_fill_manual(values = group_colors) +
+    labs(
+      title = title,
+      x = personality_labels[trait],
+      y = "Density",
+      fill = "Use Group"
+    )
+  
+  save_plot(p, paste0("density_", drug_group, "_", trait, ".png"))
+}
+
+for (i in seq_len(nrow(density_pairs))) {
+  make_density(density_pairs$drug_group[i], density_pairs$trait[i], density_pairs$title[i])
+}
+
+# -----------------------------------------------------------------------------
+# 6D. Correlation heatmaps
+# -----------------------------------------------------------------------------
+
+df_numeric <- df_viz
+df_numeric[drug_cols] <- lapply(df_numeric[drug_cols], function(x) as.integer(x) - 1)
+
+make_heatmap <- function(data, columns, title, file_name, width = 10, height = 7) {
+  cor_matrix <- cor(data[, columns], use = "complete.obs")
+  cor_df <- as.data.frame(as.table(cor_matrix))
+  
+  p <- ggplot(cor_df, aes(x = Var1, y = Var2, fill = Freq)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = round(Freq, 2)), size = 3) +
+    scale_fill_gradient2(
+      low = heatmap_low,
+      mid = heatmap_mid,
+      high = heatmap_high,
+      midpoint = 0,
+      limits = c(-1, 1)
+    ) +
+    labs(title = title, x = "", y = "", fill = "Correlation") +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      panel.grid = element_blank()
+    )
+  
+  save_plot(p, file_name, width, height)
+}
+
+make_heatmap(
+  df_numeric,
+  personality_cols,
+  "Correlation Heatmap: Personality Traits",
+  "heatmap_personality_traits.png"
+)
+
+make_heatmap(
+  df_numeric,
+  drug_cols,
+  "Drug Co-Use Heatmap",
+  "drug_co_use_heatmap.png"
+)
+
+personality_drug_cor <- cor(
+  df_numeric[, personality_cols],
+  df_numeric[, drug_cols],
+  use = "complete.obs"
+)
+
+personality_drug_df <- as.data.frame(as.table(personality_drug_cor))
+
+p_personality_drug <- ggplot(personality_drug_df, aes(x = Var2, y = Var1, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(Freq, 2)), size = 3) +
+  scale_fill_gradient2(
+    low = heatmap_low,
+    mid = heatmap_mid,
+    high = heatmap_high,
+    midpoint = 0,
+    limits = c(-1, 1)
+  ) +
+  labs(
+    title = "Correlation Heatmap: Personality Traits vs Drug-Use Classes",
+    x = "Drug",
+    y = "Personality Trait",
+    fill = "Correlation"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+save_plot(p_personality_drug, "heatmap_personality_vs_drug_use.png", width = 12, height = 6)
+
+# -----------------------------------------------------------------------------
+# 6E. Demographic distribution plots
+# -----------------------------------------------------------------------------
+
+make_bar <- function(x_var, title, x_label, file_name, width = 8, height = 5) {
+  p <- ggplot(df_viz, aes(x = .data[[x_var]])) +
+    geom_bar(fill = single_bar_color) +
+    labs(
+      title = title,
+      x = x_label,
+      y = "Number of Participants"
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  save_plot(p, file_name, width, height)
+}
+
+make_bar("age_group", "Age Group Distribution", "Age Group", "demographic_age_group.png")
+make_bar("gender_label", "Gender Distribution", "Gender", "demographic_gender.png", 7, 5)
+
+# -----------------------------------------------------------------------------
+# 6F. Drug use by demographic groups
+# -----------------------------------------------------------------------------
+
+make_stacked_percent <- function(group_var, drug, title, file_name, width = 9, height = 5) {
+  p <- ggplot(df_viz, aes(x = .data[[group_var]], fill = .data[[drug]])) +
+    geom_bar(position = "fill") +
+    scale_fill_manual(values = class_colors) +
+    scale_y_continuous(labels = percent) +
+    labs(
+      title = title,
+      x = group_var,
+      y = "Percentage of Participants",
+      fill = paste(drug_name_labels[drug], "Class")
+    ) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  save_plot(p, file_name, width, height)
+}
+
+for (drug in c("alcohol", "cannabis", "nicotine", "coke", "ecstasy")) {
+  make_stacked_percent(
+    "gender_label",
+    drug,
+    paste(drug_name_labels[drug], "Consumption by Gender"),
+    paste0("gender_", drug, "_percentage.png")
+  )
+}
+
+for (drug in c("cannabis", "alcohol", "nicotine", "ecstasy", "coke")) {
+  p <- ggplot(df_viz, aes(x = age_group, fill = .data[[drug]])) +
+    geom_bar() +
+    scale_fill_manual(values = class_colors) +
+    labs(
+      title = paste(drug_name_labels[drug], "Consumption by Age Group"),
+      x = "Age Group",
+      y = "Number of Participants",
+      fill = paste(drug_name_labels[drug], "Class")
+    )
+  
+  save_plot(p, paste0("age_group_", drug, "_stacked.png"), width = 9, height = 5)
+}
+
+# -----------------------------------------------------------------------------
+# 6G. Recent-user and never-used percentage charts
+# -----------------------------------------------------------------------------
+
+recent_summary <- drug_long %>%
+  mutate(recent_user = class %in% recent_levels) %>%
+  group_by(drug_label) %>%
+  summarise(recent_percentage = mean(recent_user) * 100, .groups = "drop") %>%
+  arrange(desc(recent_percentage))
+
+p_recent <- ggplot(
+  recent_summary,
+  aes(x = reorder(drug_label, recent_percentage), y = recent_percentage)
+) +
+  geom_col(fill = recent_color) +
+  coord_flip() +
+  labs(
+    title = "Percentage of Recent Users by Drug",
+    subtitle = "Recent use = CL3, CL4, CL5, CL6",
+    x = "Drug",
+    y = "Recent User Percentage"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(round(x, 1), "%"))
+
+save_plot(p_recent, "recent_user_percentage_chart.png", width = 10, height = 7)
+
+never_summary <- drug_long %>%
+  mutate(never_used = class == "CL0") %>%
+  group_by(drug_label) %>%
+  summarise(never_percentage = mean(never_used) * 100, .groups = "drop") %>%
+  arrange(desc(never_percentage))
+
+p_never <- ggplot(
+  never_summary,
+  aes(x = reorder(drug_label, never_percentage), y = never_percentage)
+) +
+  geom_col(fill = never_color) +
+  coord_flip() +
+  labs(
+    title = "Percentage of Participants Who Never Used Each Drug",
+    subtitle = "Never used = CL0",
+    x = "Drug",
+    y = "Never-Used Percentage"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(round(x, 1), "%"))
+
+save_plot(p_never, "never_used_percentage_chart.png", width = 10, height = 7)
+
+# -----------------------------------------------------------------------------
+# 6H. Personality profile by cannabis user group
+# -----------------------------------------------------------------------------
+
+profile_df <- df_viz %>%
+  mutate(
+    cannabis_profile_group = case_when(
+      cannabis == "CL0" ~ "Never Users",
+      cannabis == "CL6" ~ "Daily Users",
+      cannabis %in% recent_levels ~ "Recent Users",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(cannabis_profile_group)) %>%
+  mutate(
+    cannabis_profile_group = factor(
+      cannabis_profile_group,
+      levels = c("Never Users", "Recent Users", "Daily Users")
+    )
+  )
+
+profile_long <- profile_df %>%
+  group_by(cannabis_profile_group) %>%
+  summarise(across(all_of(personality_cols), mean, na.rm = TRUE), .groups = "drop") %>%
+  pivot_longer(
+    cols = all_of(personality_cols),
+    names_to = "trait",
+    values_to = "mean_score"
+  ) %>%
+  mutate(trait = factor(personality_labels[trait], levels = personality_labels[personality_cols]))
+
+p_profile <- ggplot(profile_long, aes(x = trait, y = mean_score, fill = cannabis_profile_group)) +
+  geom_col(position = "dodge") +
+  scale_fill_manual(values = profile_colors) +
+  labs(
+    title = "Personality Profile by Cannabis User Group",
+    x = "Personality Trait",
+    y = "Average Score",
+    fill = "User Group"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+save_plot(p_profile, "personality_profile_grouped_bar.png", width = 10, height = 6)
+
+# -----------------------------------------------------------------------------
+# 6I. Faceted boxplot
+# -----------------------------------------------------------------------------
+
+selected_drugs <- c("cannabis", "ecstasy", "lsd", "mushrooms", "coke", "nicotine")
+
+facet_boxplot_data <- df_viz %>%
+  select(all_of(selected_drugs), ss) %>%
+  pivot_longer(
+    cols = all_of(selected_drugs),
+    names_to = "drug",
+    values_to = "consumption_class"
+  ) %>%
+  mutate(
+    consumption_class = factor(consumption_class, levels = drug_levels, ordered = TRUE),
+    drug = factor(drug_name_labels[drug], levels = drug_name_labels[selected_drugs])
+  )
+
+p_faceted_box <- ggplot(facet_boxplot_data, aes(x = consumption_class, y = ss)) +
+  geom_boxplot(fill = boxplot_color, color = "#333333") +
+  facet_wrap(~ drug, ncol = 3) +
+  labs(
+    title = "Sensation Seeking by Drug Consumption Class",
+    x = "Consumption Class",
+    y = "Sensation Seeking Score"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+save_plot(p_faceted_box, "faceted_boxplot_ss_by_drug_class.png", width = 12, height = 8)
+
+# -----------------------------------------------------------------------------
+# 6J. Jitter plots
+# -----------------------------------------------------------------------------
+
+make_jitter <- function(x, y, color_group, title, subtitle, file_name) {
+  p <- ggplot(df_viz, aes(x = .data[[x]], y = .data[[y]], color = .data[[color_group]])) +
+    geom_jitter(width = 0.15, height = 0.15, alpha = 0.65, size = 2) +
+    scale_color_manual(values = recent_group_colors) +
+    labs(
+      title = title,
+      subtitle = subtitle,
+      x = personality_labels[x],
+      y = personality_labels[y],
+      color = "Group"
+    )
+  
+  save_plot(p, file_name, width = 8, height = 6)
+}
+
+make_jitter(
+  "impulsive", "ss", "cannabis_recent",
+  "Impulsiveness vs Sensation Seeking",
+  "Colored by Recent Cannabis Use",
+  "jitter_impulsive_ss_cannabis.png"
+)
+
+make_jitter(
+  "oscore", "ss", "lsd_recent",
+  "Openness vs Sensation Seeking",
+  "Colored by Recent LSD Use",
+  "jitter_oscore_ss_lsd.png"
+)
+
+make_jitter(
+  "nscore", "cscore", "nicotine_recent",
+  "Neuroticism vs Conscientiousness",
+  "Colored by Recent Nicotine Use",
+  "jitter_nscore_cscore_nicotine.png"
+)
+
+make_jitter(
+  "escore", "ss", "ecstasy_recent",
+  "Extraversion vs Sensation Seeking",
+  "Colored by Recent Ecstasy Use",
+  "jitter_escore_ss_ecstasy.png"
+)
+
+cat("All visualization plots saved in the 'plots' folder.\n")
+
